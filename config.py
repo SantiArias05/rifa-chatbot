@@ -39,6 +39,7 @@ class Config:
     def get_db_config(cls, clave: str, default=None):
         """Obtiene un valor de la tabla config de la DB."""
         try:
+            from database import query_one
             row = query_one("SELECT valor FROM config WHERE clave = ?", (clave,))
             return row["valor"] if row else default
         except Exception:
