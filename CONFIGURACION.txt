@@ -1,0 +1,48 @@
+# Configuración del Chatbot de Rifas
+
+## Telegram
+
+### Token del Bot
+8866976276:AAFYd-3PCGJY54WubludIh0tel3aG7EUmek
+
+### Para obtener tu Chat ID:
+1. Abre Telegram y busca tu bot
+2. Envíale un mensaje (cualquier cosa)
+3. Copia este enlace en tu navegador (reemplaza el TOKEN):
+   https://api.telegram.org/bot8866976276:AAFYd-3PCGJY54WubludIh0tel3aG7EUmek/getUpdates
+4. Busca en el resultado: "chat":{"id":123456789
+5. Ese número (sin comillas) es tu CHAT ID
+
+### Para completar:
+Una vez que tengas tu CHAT_ID, éditalo en el archivo .env:
+TELEGRAM_CHAT_ID=TU_CHAT_ID_AQUI
+
+---
+
+## WhatsApp (pendiente)
+
+Para configurar WhatsApp necesitas:
+1. Crear cuenta en Meta for Developers
+2. Crear una app de WhatsApp
+3. Obtener el Token de acceso
+4. Obtener el Phone Number ID
+
+---
+
+## Ejecutar el servidor
+
+```bash
+cd C:\Users\Arias\Proyectos\rifa-chatbot
+python ejecutar.py
+```
+
+Después abre: http://localhost:5000/admin
+
+---
+
+## Comandos de Telegram
+
+Cuando el bot esté funcionando, podés usar estos comandos:
+- /start - Iniciar
+- /stats - Ver estadísticas
+- /rifa - Info de la rifa actual

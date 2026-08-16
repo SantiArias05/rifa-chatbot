@@ -1,0 +1,27 @@
+# Entorno
+.env
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Datos
+data/*.db
+data/*.db-journal
+data/comprobantes/*
+!data/comprobantes/.gitkeep
+
+# Logs
+logs/*.log
+!logs/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
