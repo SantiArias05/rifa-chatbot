@@ -5,10 +5,10 @@ def bienvenida(nombre_rifa: str = None, precio: int = 0) -> str:
     """Saludo inicial cuando el cliente inicia conversación."""
     nombre = nombre_rifa or "su rifa"
     return (
-        f"¡Buenas! Le atiende.\n\n"
-        f"Tenemos disponible en {nombre}.\n"
-        f"Valor de la boleta: ${precio:,}.\n\n"
-        f"¿Qué número le interesa?"
+        f"¡Hola! 👋 Bienvenido a la rifa {nombre}\n\n"
+        f"🎟️ El número cuesta ${precio:,}\n\n"
+        f"¿Qué número te gustaría reservar?\n"
+        f"Escribilo y te lo apartamos 😀"
     )
 
 
@@ -16,21 +16,21 @@ def oferta_numeros_cercanos(numero: str, cercanos: list[str]) -> str:
     """Cuando el número solicitado ya está ocupado."""
     opts = ", ".join(cercanos[:4])
     return (
-        f"El número {numero} ya está ocupado.\n\n"
-        f"Le puedo ofrecer: {opts}\n"
-        f"¿Cuál prefiere?"
+        f"Uy, el {numero} ya está ocupado 😢\n\n"
+        f"Te puedo ofrecer estos otros:\n{opts}\n\n"
+        f"¿Cuál te gusta más?"
     )
 
 
 def numeros_disponibles_aleatorios(numeros: list[str]) -> str:
     """Muestra un random de boletas disponibles."""
     if not numeros:
-        return "En este momento no hay boletas disponibles."
+        return "¡Por ahora no hay boletas disponibles! Pero很快就会有 nuevas 😄"
 
     return (
-        f"Estas son algunas disponibles:\n\n"
+        f"¡Mira estas que están libres! 🎉\n\n"
         f"{', '.join(numeros)}\n\n"
-        f"¿Cuál le interesa?"
+        f"¿Cuál te llevo reservado?"
     )
 
 
@@ -41,50 +41,51 @@ def pedir_datos_pago(numero: str, precio: int, datos_pago: dict) -> str:
     tipo = datos_pago.get("tipo", "ahorros")
 
     return (
-        f"La boleta {numero} está disponible.\n"
+        f"¡El {numero} es tuyo! 🎉\n\n"
         f"Valor: ${precio:,}\n\n"
-        f"Datos para el pago:\n"
-        f"- Banco: {banco}\n"
-        f"- Cuenta: {tipo}\n"
-        f"- Número: {cuenta}\n\n"
-        f"Envíe el comprobante (foto) cuando realice el pago."
+        f"Datos para pagar:\n"
+        f"🏦 Banco: {banco}\n"
+        f"💳 Tipo: {tipo}\n"
+        f"📱 Número: {cuenta}\n\n"
+        f"Cuando pagues, mandame la foto del comprobante 😀"
     )
 
 
 def comprobante_recibido() -> str:
     """Confirmación cuando el cliente envía el comprobante."""
     return (
-        f"Gracias, he recibido su comprobante. 📸\n\n"
-        f"En breve le confirmamos el pago.\n"
-        f"¿Necesita algo más?"
+        f"¡Perfecto, me llegó! 📸\n\n"
+        f"Ya lo estoy revisando 👀\n"
+        f"Te aviso en breve cuando esté confirmado ✅\n\n"
+        f"¿Tenés alguna otra duda?"
     )
 
 
 def pago_confirmado(numero: str) -> str:
     """Cuando el pago es confirmado."""
     return (
-        f"¡Pago confirmado!\n\n"
-        f"Boleta: {numero}\n"
-        f"Ya está a su nombre.\n\n"
-        f"¡Mucha suerte! 🍀"
+        f"¡FELICIDADES! 🎊🎊\n\n"
+        f"Boleta {numero} confirmada\n"
+        f"¡Ya es tuya! 🏆\n\n"
+        f"¡Mucha suerte en el sorteo! 🍀🍀"
     )
 
 
 def pago_rechazado(numero: str, motivo: str = None) -> str:
     """Cuando el pago es rechazado."""
-    base = f"Lamentablemente, el pago para la boleta {numero} fue rechazado."
+    base = f"El pago de la boleta {numero} no fue aceptado 😟"
     if motivo:
         base += f"\n\nMotivo: {motivo}"
-    base += "\n\nComuníquese con nosotros para resolver."
+    base += "\n\nContactame para solucionarlo"
     return base
 
 
 def no_entiendo() -> str:
     """Cuando no entiende el mensaje."""
     return (
-        f"Disculpe, no entendí su mensaje.\n\n"
-        f"¿Podría escribir de otra forma?\n"
-        f"Si lo prefiere, puede llamar directamente."
+        f"No te entendí 😅\n\n"
+        f"¿Podés escribir de otra forma?\n"
+        f"O si querés, decime qué número te gusta"
     )
 
 
