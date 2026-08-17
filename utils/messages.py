@@ -1,4 +1,4 @@
-"""Plantillas de mensajes WhatsApp - Tono formal colombiano."""
+"""Plantillas de mensajes WhatsApp - Tono amigable y conversacional."""
 
 
 def bienvenida(nombre_rifa: str = None, precio: int = 0) -> str:
@@ -16,7 +16,7 @@ def oferta_numeros_cercanos(numero: str, cercanos: list[str]) -> str:
     """Cuando el número solicitado ya está ocupado."""
     opts = ", ".join(cercanos[:4])
     return (
-        f"Uy, el {numero} ya está ocupado 😢\n\n"
+        f"Uy, el {numero} ya está reservado 😢\n\n"
         f"Te puedo ofrecer estos otros:\n{opts}\n\n"
         f"¿Cuál te gusta más?"
     )
@@ -25,7 +25,11 @@ def oferta_numeros_cercanos(numero: str, cercanos: list[str]) -> str:
 def numeros_disponibles_aleatorios(numeros: list[str]) -> str:
     """Muestra un random de boletas disponibles."""
     if not numeros:
-        return "¡Por ahora no hay boletas disponibles! Pero很快就会有 nuevas 😄"
+        return (
+            f"¡Qué lástima! 😢 En este momento no hay boletas disponibles.\n\n"
+            f"Pero no te preocupes, muy pronto我们会(tendremos) una nueva rifa!\n\n"
+            f"¿Te sumo a la lista de espera para avisarte cuando haya nuevas rifas? 😊"
+        )
 
     return (
         f"¡Mira estas que están libres! 🎉\n\n"
@@ -92,9 +96,9 @@ def no_entiendo() -> str:
 def estado_cliente(boletas: list[dict]) -> str:
     """Muestra el estado de las boletas del cliente."""
     if not boletas:
-        return "No tiene boletas registradas."
+        return "No tenés boletas registradas aún."
 
-    msg = "Sus boletas:\n\n"
+    msg = "Tus boletas:\n\n"
     for b in boletas:
         estado = b.get("estado", "")
         numero = b.get("numero", "")
@@ -109,8 +113,10 @@ def estado_cliente(boletas: list[dict]) -> str:
 def rifa_no_activa() -> str:
     """Cuando no hay rifa activa."""
     return (
-        f"En este momento no hay rifa activa.\n\n"
-        f"Próximamente tendremos nuevas rifas."
+        f"¡Hola! 👋\n\n"
+        f"Gracias por escribirnos.\n\n"
+        f"Actualmente no hay rifa activa, pero muy pronto tendremos una nueva! 🎉\n\n"
+        f"¿Te sumo a la lista de espera para avisarte apenas tengamos todo listo? 😊"
     )
 
 
@@ -118,8 +124,8 @@ def ayuda() -> str:
     """Mensaje de ayuda."""
     return (
         f"Comandos disponibles:\n\n"
-        f"• disponibles - Ver boletas\n"
-        f"• mis boletas - Ver sus compras\n"
+        f"• disponibles - Ver boletas disponibles\n"
+        f"• mis boletas - Ver tus compras\n"
         f"• ayuda - Mostrar este mensaje\n\n"
-        f"¿En qué le puedo ayudar?"
+        f"¿En qué te puedo ayudar?"
     )

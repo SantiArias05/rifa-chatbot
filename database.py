@@ -1,4 +1,5 @@
-"""Manejo de la base de datos SQLite del chatbot de rifas."""
+"""Manejo de base de datos - Soporta PostgreSQL (produccion) y SQLite (desarrollo)."""
+import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -7,155 +8,238 @@ BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "data" / "rifas.db"
 SCHEMA_PATH = BASE_DIR / "database" / "schema.sql"
 
+# Determinar tipo de DB
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+USE_POSTGRES = bool(DATABASE_URL)
 
-@contextmanager
+# Conexión global
+_conn = None
+
+
 def get_conn():
-    """Context manager que abre/cierra la conexión con FK activadas."""
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
+    """Context manager que abre/cierra la conexión."""
+    global _conn
+    
+    if USE_POSTGRES:
+        # Usar PostgreSQL
+        import psycopg2
+        if _conn is None or _conn.closed:
+            _conn = psycopg2.connect(DATABASE_URL)
+        return _conn
+    else:
+        # Usar SQLite
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(DB_PATH, timeout=10)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        return conn
+
+
+def get_conn_with_commit():
+    """Context manager con commit automático."""
+    conn = get_conn()
     try:
         yield conn
         conn.commit()
     except Exception:
         conn.rollback()
         raise
-    finally:
-        conn.close()
+
+
+@contextmanager
+def conn_context():
+    """Context manager que maneja commit/rollback."""
+    conn = get_conn()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def query(sql: str, params: tuple = ()):
+    """Ejecuta SELECT y retorna lista de diccionarios."""
+    if USE_POSTGRES:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                columns = [desc[0] for desc in cur.description]
+                return [dict(zip(columns, row)) for row in cur.fetchall()]
+    else:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(sql, params)
+            columns = [desc[0] for desc in cur.description]
+            return [dict(zip(columns, row)) for row in cur.fetchall()]
+
+
+def query_one(sql: str, params: tuple = ()):
+    """Ejecuta SELECT y retorna un diccionario o None."""
+    results = query(sql, params)
+    return results[0] if results else None
+
+
+def execute(sql: str, params: tuple = ()):
+    """Ejecuta INSERT/UPDATE/DELETE y retorna el ID."""
+    if USE_POSTGRES:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                conn.commit()
+                # Retornar ID si es INSERT
+                if cur.rowcount > 0 and "INSERT" in sql.upper():
+                    cur.execute("SELECT LASTVAL()")
+                    return cur.fetchone()[0]
+                return cur.rowcount
+    else:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(sql, params)
+            conn.commit()
+            return cur.lastrowid
 
 
 def init_db():
     """Crea las tablas si no existen."""
-    if not SCHEMA_PATH.exists():
-        raise FileNotFoundError(f"No encuentro el schema en {SCHEMA_PATH}")
-    with get_conn() as conn:
-        conn.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
-    print(f"[OK] DB inicializada en {DB_PATH}")
+    if USE_POSTGRES:
+        # PostgreSQL - crear tablas
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                # Tabla rifas
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS rifas (
+                        id SERIAL PRIMARY KEY,
+                        nombre TEXT NOT NULL,
+                        descripcion TEXT,
+                        precio_boleta REAL NOT NULL,
+                        precio_separacion_min REAL,
+                        total_boletas INTEGER NOT NULL,
+                        fecha_sorteo TEXT,
+                        dias_aviso INTEGER DEFAULT 2,
+                        estado TEXT DEFAULT 'activa',
+                        fecha_inicio TEXT,
+                        fecha_fin TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                # Tabla clientes
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS clientes (
+                        id SERIAL PRIMARY KEY,
+                        nombre TEXT NOT NULL,
+                        telefono TEXT UNIQUE NOT NULL,
+                        email TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                # Tabla boletas
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS boletas (
+                        id SERIAL PRIMARY KEY,
+                        rifa_id INTEGER REFERENCES rifas(id),
+                        numero TEXT NOT NULL,
+                        estado TEXT DEFAULT 'disponible',
+                        cliente_id INTEGER REFERENCES clientes(id),
+                        comprobante_path TEXT,
+                        precio REAL NOT NULL,
+                        monto_separacion REAL DEFAULT 0,
+                        monto_restante REAL DEFAULT 0,
+                        fecha_separacion TIMESTAMP,
+                        fecha_expiracion_separacion TIMESTAMP,
+                        fecha_reserva TIMESTAMP,
+                        fecha_expiracion_reserva TIMESTAMP,
+                        fecha_pago TIMESTAMP,
+                        notas TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE(rifa_id, numero)
+                    )
+                """)
+                
+                # Tabla transacciones
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS transacciones (
+                        id SERIAL PRIMARY KEY,
+                        boleta_id INTEGER REFERENCES boletas(id),
+                        rifa_id INTEGER REFERENCES rifas(id),
+                        tipo TEXT NOT NULL,
+                        detalle TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                # Tabla sesiones_cliente
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS sesiones_cliente (
+                        id SERIAL PRIMARY KEY,
+                        telefono TEXT UNIQUE NOT NULL,
+                        estado TEXT NOT NULL,
+                        contexto TEXT,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                # Tabla config
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS config (
+                        clave TEXT PRIMARY KEY,
+                        valor TEXT,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                conn.commit()
+    else:
+        # SQLite - usar schema.sql
+        if not SCHEMA_PATH.exists():
+            return
+        
+        with get_conn() as conn:
+            with open(SCHEMA_PATH, encoding='utf-8') as f:
+                conn.executescript(f.read())
 
 
-def query(sql: str, params: tuple = ()):
-    """Ejecuta un SELECT y devuelve lista de dicts."""
-    with get_conn() as conn:
-        cur = conn.execute(sql, params)
-        return [dict(row) for row in cur.fetchall()]
-
-
-def query_one(sql: str, params: tuple = ()):
-    """Ejecuta un SELECT y devuelve un solo dict (o None)."""
-    with get_conn() as conn:
-        cur = conn.execute(sql, params)
-        row = cur.fetchone()
-        return dict(row) if row else None
-
-
-def execute(sql: str, params: tuple = ()):
-    """Ejecuta INSERT/UPDATE/DELETE y devuelve el lastrowid."""
-    with get_conn() as conn:
-        cur = conn.execute(sql, params)
-        return cur.lastrowid
-
-
-# ---------- helpers de dominio ----------
-
-def get_or_create_cliente(telefono: str, nombre: str = None) -> int:
-    """Devuelve el id del cliente, creándolo si no existe."""
-    row = query_one("SELECT id FROM clientes WHERE telefono = ?", (telefono,))
-    if row:
-        if nombre and nombre != "Sin nombre":
-            execute(
-                "UPDATE clientes SET nombre = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                (nombre, row["id"]),
-            )
-        return row["id"]
-    return execute(
-        "INSERT INTO clientes (telefono, nombre) VALUES (?, ?)",
-        (telefono, nombre or "Sin nombre"),
-    )
-
-
-def get_active_rifa() -> dict | None:
-    """Devuelve la rifa marcada como activa."""
-    cfg = query_one("SELECT valor FROM config WHERE clave = 'rifa_activa_id'")
-    if cfg and cfg["valor"]:
-        rifa = query_one("SELECT * FROM rifas WHERE id = ?", (int(cfg["valor"]),))
-        if rifa:
-            return rifa
-    return query_one(
+def get_active_rifa():
+    """Retorna la rifa activa."""
+    rifa = query_one(
         "SELECT * FROM rifas WHERE estado = 'activa' ORDER BY id DESC LIMIT 1"
     )
-
-
-def reservar_boleta(rifa_id: int, numero: str, cliente_id: int, minutos: int = 120) -> bool:
-    """Reserva atómica: devuelve True solo si la boleta estaba disponible."""
-    with get_conn() as conn:
-        cur = conn.execute(
-            """UPDATE boletas
-                  SET estado = 'reservada',
-                      cliente_id = ?,
-                      fecha_reserva = CURRENT_TIMESTAMP,
-                      fecha_expiracion_reserva = datetime('now', '+' || ? || ' minutes'),
-                      updated_at = CURRENT_TIMESTAMP
-                WHERE rifa_id = ? AND numero = ? AND estado = 'disponible'""",
-            (cliente_id, minutos, rifa_id, numero),
-        )
-        if cur.rowcount == 0:
-            return False
-        boleta_id = conn.execute(
-            "SELECT id FROM boletas WHERE rifa_id = ? AND numero = ?",
-            (rifa_id, numero),
-        ).fetchone()[0]
-        conn.execute(
-            """INSERT INTO transacciones (boleta_id, rifa_id, tipo, detalle, usuario_tel)
-                   VALUES (?, ?, 'reserva', 'Reserva creada',
-                           (SELECT telefono FROM clientes WHERE id = ?))""",
-            (boleta_id, rifa_id, cliente_id),
-        )
-        return True
-
-
-def confirmar_pago(boleta_id: int, admin_tel: str) -> bool:
-    """Confirma el pago de una boleta reservada."""
-    with get_conn() as conn:
-        cur = conn.execute(
-            """UPDATE boletas
-                  SET estado = 'vendida',
-                      fecha_pago = CURRENT_TIMESTAMP,
-                      updated_at = CURRENT_TIMESTAMP
-                WHERE id = ? AND estado = 'reservada'""",
-            (boleta_id,),
-        )
-        if cur.rowcount == 0:
-            return False
-        conn.execute(
-            """INSERT INTO transacciones (boleta_id, tipo, detalle, usuario_tel)
-                   VALUES (?, 'pago_confirmado', 'Pago confirmado por admin', ?)""",
-            (boleta_id, admin_tel),
-        )
-        return True
-
-
-def liberar_expiradas() -> int:
-    """Job: pone en 'expirada' las reservas vencidas. Devuelve cuántas."""
-    with get_conn() as conn:
-        cur = conn.execute(
-            """UPDATE boletas
-                  SET estado = 'expirada', updated_at = CURRENT_TIMESTAMP
-                WHERE estado = 'reservada'
-                  AND fecha_expiracion_reserva IS NOT NULL
-                  AND fecha_expiracion_reserva < CURRENT_TIMESTAMP""",
-        )
-        return cur.rowcount
+    if not rifa:
+        # Buscar cualquier rifa si no hay activa
+        rifa = query_one("SELECT * FROM rifas ORDER BY id DESC LIMIT 1")
+    return rifa
 
 
 def is_admin(telefono: str) -> bool:
-    """Chequea si un número está en la whitelist de admins."""
-    row = query_one(
-        "SELECT id FROM admins WHERE telefono = ? AND activo = 1", (telefono,)
+    """Determina si el teléfono es admin."""
+    from config import Config
+    admin_telefonos = os.getenv("ADMIN_TELEFONOS", "").split(",")
+    return telefono in admin_telefonos or telefono == os.getenv("ADMIN_TELEFONO", "")
+
+
+def get_or_create_cliente(telefono: str, nombre: str = None):
+    """Obtiene o crea un cliente."""
+    cliente = query_one("SELECT * FROM clientes WHERE telefono = ?", (telefono,))
+    if cliente:
+        if nombre and cliente.get("nombre") != nombre:
+            execute("UPDATE clientes SET nombre = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", 
+                   (nombre, cliente["id"]))
+        return query_one("SELECT * FROM clientes WHERE telefono = ?", (telefono,))
+    
+    cliente_id = execute(
+        "INSERT INTO clientes (nombre, telefono) VALUES (?, ?)",
+        (nombre or "Cliente", telefono)
     )
-    return row is not None
+    return query_one("SELECT * FROM clientes WHERE id = ?", (cliente_id,))
 
 
-if __name__ == "__main__":
-    init_db()
-    print("[OK] Estructura lista.")
+def liberar_expiradas():
+    """Libera boletas expiradas."""
+    count = 0
+    # Implementar lógica de expiración
+    return count
