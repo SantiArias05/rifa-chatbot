@@ -11,6 +11,66 @@ logger = logging.getLogger(__name__)
 wa_client = WhatsAppClient()
 
 
+# ---------- TELEGRAM WEBHOOK ----------
+@webhook_bp.route("/telegram/webhook", methods=["POST"])
+def telegram_webhook():
+    """Recibe mensajes y callbacks del bot de Telegram."""
+    try:
+        from telegram import TelegramBot
+        bot = TelegramBot()
+        data = request.json
+        logger.info(f"Telegram webhook: {data}")
+        
+        # Manejar callback_query (botones)
+        if "callback_query" in data:
+            callback = data["callback_query"]
+            callback_data = callback.get("data", "")
+            chat_id = callback.get("message", {}).get("chat", {}).get("id")
+            
+            # Procesar según el callback
+            if callback_data.startswith("aprobar_"):
+                numero = callback_data.replace("aprobar_", "")
+                # Aprobar boleta
+                from database import get_active_rifa, query_one, execute
+                rifa = get_active_rifa()
+                if rifa:
+                    boleta = query_one("SELECT * FROM boletas WHERE rifa_id = ? AND numero = ?", (rifa["id"], numero))
+                    if boleta and boleta["estado"] == "separada":
+                        execute("UPDATE boletas SET estado = 'vendida', fecha_pago = datetime('now') WHERE id = ?", (boleta["id"],))
+                        bot.answer_callback_query(callback["id"], text=f"Boleta {numero} aprobada!")
+                        bot.send_message(chat_id, f"✅ Boleta {numero}APROBADA")
+                        return jsonify({"ok": True})
+            
+            elif callback_data.startswith("rechazar_"):
+                numero = callback_data.replace("rechazar_", "")
+                from database import get_active_rifa, query_one, execute
+                rifa = get_active_rifa()
+                if rifa:
+                    boleta = query_one("SELECT * FROM boletas WHERE rifa_id = ? AND numero = ?", (rifa["id"], numero))
+                    if boleta and boleta["estado"] == "separada":
+                        execute("UPDATE boletas SET estado = 'disponible', cliente_id = NULL, monto_separacion = 0, monto_restante = 0 WHERE id = ?", (boleta["id"],))
+                        bot.answer_callback_query(callback["id"], text=f"Boleta {numero} rechazada")
+                        bot.send_message(chat_id, f"❌ Boleta {numero} RECHAZADA")
+                        return jsonify({"ok": True})
+        
+        # Manejar mensajes de texto
+        elif "message" in data:
+            message = data["message"]
+            chat_id = message.get("chat", {}).get("id")
+            text = message.get("text", "")
+            
+            # Procesar comando o número de boleta
+            from bot import procesar_mensaje
+            respuesta = procesar_mensaje(chat_id, text)
+            bot.send_message(chat_id, respuesta)
+        
+        return jsonify({"ok": True})
+        
+    except Exception as e:
+        logger.error(f"Error en telegram_webhook: {e}")
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @webhook_bp.route("/webhook", methods=["GET"])
 def verify_webhook():
     """Verificación del webhook cuando se registra en Meta."""

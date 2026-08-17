@@ -134,5 +134,54 @@ class TelegramNotifier:
         return self._send(msg)
 
 
+class TelegramBot:
+    """Bot de Telegram para interactuar con clientes."""
+    
+    def __init__(self):
+        self.token = Config.TELEGRAM_BOT_TOKEN
+        self.enabled = Config.TELEGRAM_ENABLED
+    
+    def _request(self, method: str, data: dict) -> dict:
+        """Hace una petición a la API de Telegram."""
+        if not self.enabled or not self.token:
+            return {"ok": False, "error": "Bot no configurado"}
+        
+        url = f"https://api.telegram.org/bot{self.token}/{method}"
+        try:
+            response = requests.post(url, json=data, timeout=10)
+            return response.json()
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+    
+    def send_message(self, chat_id: int, text: str, parse_mode: str = "Markdown") -> bool:
+        """Envía un mensaje a un chat."""
+        result = self._request("sendMessage", {
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": parse_mode
+        })
+        return result.get("ok", False)
+    
+    def answer_callback_query(self, callback_query_id: str, text: str = None) -> bool:
+        """Responde a un callback query."""
+        data = {"callback_query_id": callback_query_id}
+        if text:
+            data["text"] = text
+        result = self._request("answerCallbackQuery", data)
+        return result.get("ok", False)
+    
+    def edit_message_text(self, chat_id: int, message_id: int, text: str, reply_markup: dict = None) -> bool:
+        """Edita un mensaje."""
+        data = {
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "text": text
+        }
+        if reply_markup:
+            data["reply_markup"] = reply_markup
+        result = self._request("editMessageText", data)
+        return result.get("ok", False)
+
+
 # Instancia global
 telegram = TelegramNotifier()
