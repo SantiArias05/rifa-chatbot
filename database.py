@@ -208,6 +208,7 @@ def init_db():
                         estado TEXT NOT NULL,
                         rifa_id INTEGER,
                         contexto TEXT,
+                        contexto_json TEXT,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
@@ -231,6 +232,17 @@ def init_db():
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
+                
+                # Agregar columnas que pueden faltar
+                try:
+                    cur.execute("ALTER TABLE sesiones_cliente ADD COLUMN IF NOT EXISTS contexto_json TEXT")
+                except:
+                    pass
+                
+                try:
+                    cur.execute("ALTER TABLE sesiones_cliente ADD COLUMN IF NOT EXISTS rifa_id INTEGER")
+                except:
+                    pass
                 
                 conn.commit()
     else:
