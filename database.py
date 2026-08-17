@@ -244,6 +244,16 @@ def init_db():
                 except:
                     pass
                 
+                # Tabla historial_cliente
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS historial_cliente (
+                        id SERIAL PRIMARY KEY,
+                        telefono TEXT NOT NULL,
+                        nombre TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
                 conn.commit()
     else:
         # SQLite - usar schema.sql
