@@ -195,6 +195,7 @@ def init_db():
                         id SERIAL PRIMARY KEY,
                         telefono TEXT UNIQUE NOT NULL,
                         estado TEXT NOT NULL,
+                        rifa_id INTEGER,
                         contexto TEXT,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
