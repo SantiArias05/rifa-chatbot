@@ -1,13 +1,13 @@
 # Chatbot de Rifas (WhatsApp Business)
 
 Bot automatizado para gestionar ventas de rifas por WhatsApp.
-Pensado para correr 24/7 en una PC o VPS barato.
+Corriendo en Railway con PostgreSQL.
 
 ## Stack
 
-- Python 3.10+
+- Python 3.12
 - Flask (webhook + panel admin)
-- SQLite
+- PostgreSQL (Railway)
 - Meta WhatsApp Business Cloud API
 
 ## Setup
