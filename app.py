@@ -874,6 +874,51 @@ def admin_aprobar():
     return jsonify({"success": True, "message": f"Boleta {numero} aprobada y cliente notificado"})
 
 
+@app.route("/admin/separar-test", methods=["GET"])
+def separar_test():
+    """Endpoint temporal para separar una boleta de prueba."""
+    try:
+        rifa = get_active_rifa()
+        if not rifa:
+            return jsonify({"success": False, "message": "No hay rifa"})
+        
+        # Buscar boleta disponible
+        boleta = query_one(
+            "SELECT * FROM boletas WHERE rifa_id = ? AND estado = 'disponible' ORDER BY RANDOM() LIMIT 1",
+            (rifa["id"],)
+        )
+        
+        if not boleta:
+            return jsonify({"success": False, "message": "No hay boletas disponibles"})
+        
+        # Crear cliente si no existe
+        cliente = query_one("SELECT id FROM clientes WHERE telefono = ?", ("+5491155555555",))
+        if not cliente:
+            cliente_id = execute(
+                "INSERT INTO clientes (nombre, telefono, email) VALUES (?, ?, ?)",
+                ("Cliente Prueba", "+5491155555555", "prueba@test.com")
+            )
+            cliente = query_one("SELECT id FROM clientes WHERE telefono = ?", ("+5491155555555",))
+        
+        # Separar boleta
+        execute(
+            """UPDATE boletas 
+               SET estado = 'separada', cliente_id = ?, monto_separacion = ?, 
+                   monto_restante = ?, fecha_separacion = datetime('now')
+               WHERE id = ?""",
+            (cliente["id"], 5000, boleta["precio"] - 5000, boleta["id"])
+        )
+        
+        return jsonify({
+            "success": True, 
+            "message": f"Boleta {boleta['numero']} separada",
+            "numero": boleta["numero"]
+        })
+        
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)})
+
+
 @app.route("/admin/rechazar", methods=["POST"])
 def admin_rechazar():
     """Rechaza una boleta."""
