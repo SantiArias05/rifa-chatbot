@@ -60,9 +60,9 @@ def telegram_webhook():
             text = message.get("text", "")
             
             # Procesar comando o número de boleta
-            from bot import Bot
-            bot_instance = Bot()
-            respuesta = bot_instance.procesar(str(chat_id), text, es_admin=False)
+            from bot import ChatBot
+            chatbot = ChatBot()
+            respuesta = chatbot.procesar(str(chat_id), text)
             bot.send_message(chat_id, respuesta)
         
         return jsonify({"ok": True})
