@@ -58,9 +58,19 @@ def conn_context():
         raise
 
 
+def _convert_params(params, sql):
+    """Convierte parámetros para PostgreSQL si es necesario."""
+    if USE_POSTGRES:
+        # PostgreSQL necesita %s en lugar de ?
+        return tuple(params)
+    return params
+
+
 def query(sql: str, params: tuple = ()):
     """Ejecuta SELECT y retorna lista de diccionarios."""
     if USE_POSTGRES:
+        # Convertir ? a %s para PostgreSQL
+        sql = sql.replace('?', '%s')
         with get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, params)
@@ -83,14 +93,20 @@ def query_one(sql: str, params: tuple = ()):
 def execute(sql: str, params: tuple = ()):
     """Ejecuta INSERT/UPDATE/DELETE y retorna el ID."""
     if USE_POSTGRES:
+        # Convertir ? a %s para PostgreSQL
+        sql = sql.replace('?', '%s')
         with get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, params)
                 conn.commit()
                 # Retornar ID si es INSERT
                 if cur.rowcount > 0 and "INSERT" in sql.upper():
-                    cur.execute("SELECT LASTVAL()")
-                    return cur.fetchone()[0]
+                    # PostgreSQL usa RETURNING o lastval()
+                    try:
+                        cur.execute("SELECT LASTVAL()")
+                        return cur.fetchone()[0]
+                    except:
+                        return cur.rowcount
                 return cur.rowcount
     else:
         with get_conn() as conn:
@@ -190,6 +206,17 @@ def init_db():
                         clave TEXT PRIMARY KEY,
                         valor TEXT,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                # Tabla conversaciones (historial)
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS conversaciones (
+                        id SERIAL PRIMARY KEY,
+                        telefono TEXT NOT NULL,
+                        mensaje TEXT NOT NULL,
+                        tipo TEXT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
                 
