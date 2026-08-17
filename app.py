@@ -10,6 +10,9 @@ from database import init_db, query, query_one, execute, get_active_rifa
 from webhook import webhook_bp
 from telegram import telegram
 
+# Inicializar DB al inicio
+init_db()
+
 # Configurar logging
 logging.basicConfig(
     level=getattr(logging, Config.LOG_LEVEL),
