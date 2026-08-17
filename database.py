@@ -10,7 +10,18 @@ SCHEMA_PATH = BASE_DIR / "database" / "schema.sql"
 
 # Determinar tipo de DB
 DATABASE_URL = os.getenv("DATABASE_URL", "")
-USE_POSTGRES = bool(DATABASE_URL)
+USE_POSTGRES = False  # Forzar SQLite por ahora
+
+# Intentar PostgreSQL solo si hay URL válida
+if DATABASE_URL and "postgres" in DATABASE_URL.lower():
+    try:
+        import psycopg2
+        test_conn = psycopg2.connect(DATABASE_URL)
+        test_conn.close()
+        USE_POSTGRES = True
+    except Exception as e:
+        print(f"PostgreSQL no disponible: {e}")
+        USE_POSTGRES = False
 
 # Conexión global
 _conn = None
