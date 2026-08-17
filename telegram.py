@@ -153,8 +153,12 @@ class TelegramBot:
         except Exception as e:
             return {"ok": False, "error": str(e)}
     
-    def send_message(self, chat_id: int, text: str, parse_mode: str = "Markdown") -> bool:
+    def send_message(self, chat_id, text: str, parse_mode: str = "Markdown") -> bool:
         """Envía un mensaje a un chat."""
+        # Asegurar que chat_id sea un string
+        if isinstance(chat_id, int):
+            chat_id = str(chat_id)
+        
         result = self._request("sendMessage", {
             "chat_id": chat_id,
             "text": text,

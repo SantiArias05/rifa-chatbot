@@ -59,11 +59,12 @@ def telegram_webhook():
             chat_id = message.get("chat", {}).get("id")
             text = message.get("text", "")
             
-            # Procesar comando o número de boleta
-            from bot import ChatBot
-            chatbot = ChatBot()
-            respuesta = chatbot.procesar(str(chat_id), text)
-            bot.send_message(chat_id, respuesta)
+            if chat_id:
+                # Procesar comando o número de boleta
+                from bot import ChatBot
+                chatbot = ChatBot()
+                respuesta = chatbot.procesar(str(chat_id), text)
+                bot.send_message(chat_id, respuesta)
         
         return jsonify({"ok": True})
         
